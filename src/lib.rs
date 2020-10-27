@@ -116,4 +116,74 @@ impl Geocode {
 
 #[cfg(test)]
 mod tests {
+    use super::Geocode;
+
+    const APPLETON_LAT_LONG: (f64, f64) = (-88.4, 44.266667);
+    const APPLETON_MERCATOR: (f64, f64) = (-9840642.99, 5506802.68);
+    const FORT_COLLINS_LAT_LONG: (f64, f64) = (-105.078056, 40.559167);
+    const FORT_COLLINS_MERCATOR: (f64, f64) = (-11697235.69, 4947534.74);
+
+    #[test]
+    fn geohash_encode() {
+        let geocode = Geocode::Geohash;
+
+        let result = geocode.encode(
+            FORT_COLLINS_LAT_LONG.0, FORT_COLLINS_LAT_LONG.1, 6);
+        assert!(result.is_ok());
+        assert_eq!("9xjq8z", &result.unwrap());
+
+        let result = geocode.encode(
+            APPLETON_LAT_LONG.0, APPLETON_LAT_LONG.1, 8);
+        assert!(result.is_ok());
+        assert_eq!("dpc5u6t0", &result.unwrap());
+    }
+
+    #[test]
+    fn geohash_intervals() {
+        let geocode = Geocode::Geohash;
+        assert_eq!(geocode.get_intervals(1),
+            (45.0, 45.0));
+        assert_eq!(geocode.get_intervals(2),
+            (11.25, 5.625));
+        assert_eq!(geocode.get_intervals(3),
+            (1.40625, 1.40625));
+        assert_eq!(geocode.get_intervals(4),
+            (0.3515625, 0.17578125));
+        assert_eq!(geocode.get_intervals(5),
+            (0.0439453125, 0.0439453125));
+        assert_eq!(geocode.get_intervals(6),
+            (0.010986328125, 0.0054931640625));
+    }
+
+    #[test]
+    fn quadtile_encode() {
+        let geocode = Geocode::QuadTile;
+
+        let result = geocode.encode(
+            FORT_COLLINS_MERCATOR.0, FORT_COLLINS_MERCATOR.1, 6);
+        assert!(result.is_ok());
+        assert_eq!("023101", &result.unwrap());
+
+        let result = geocode.encode(
+            APPLETON_MERCATOR.0, APPLETON_MERCATOR.1, 8);
+        assert!(result.is_ok());
+        assert_eq!("03022201", &result.unwrap());
+    }
+
+    #[test]
+    fn quadtile_intervals() {
+        let geocode = Geocode::QuadTile;
+        assert_eq!(geocode.get_intervals(1),
+            (20037508.342789248, 20037508.342789248));
+        assert_eq!(geocode.get_intervals(2),
+            (10018754.171394624, 10018754.171394624));
+        assert_eq!(geocode.get_intervals(3),
+            (5009377.085697312, 5009377.085697312));
+        assert_eq!(geocode.get_intervals(4),
+            (2504688.542848656, 2504688.542848656));
+        assert_eq!(geocode.get_intervals(5),
+            (1252344.271424328, 1252344.271424328));
+        assert_eq!(geocode.get_intervals(6),
+            (626172.135712164, 626172.135712164));
+    }
 }
