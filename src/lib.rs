@@ -1,6 +1,8 @@
 use std::error::Error;
 
 const GEOHASH_BOUNDS: (f64, f64, f64, f64) = (-180.0, 180.0, -90.0, 90.0);
+static GEOHASH16_CHARS: &[char] = &['0', '1', '2', '3', '4',
+    '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
 static GEOHASH32_CHARS: &[char] = &['0', '1', '2', '3', '4',
     '5', '6', '7', '8', '9', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j',
     'k', 'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
@@ -13,6 +15,7 @@ static QUADTILE_CHARS: &[char] = &['2', '0', '3', '1'];
 #[derive(Clone, Copy, Debug)]
 pub enum Geocode {
     Geohash,
+    Geohash16,
     QuadTile,
 }
 
@@ -29,6 +32,8 @@ impl Geocode {
                 char_bits, codes) = match self {
             Geocode::Geohash => (GEOHASH_BOUNDS.0, GEOHASH_BOUNDS.1,
                 GEOHASH_BOUNDS.2, GEOHASH_BOUNDS.3, 5, GEOHASH32_CHARS),
+            Geocode::Geohash16 => (GEOHASH_BOUNDS.0, GEOHASH_BOUNDS.1,
+                GEOHASH_BOUNDS.2, GEOHASH_BOUNDS.3, 4, GEOHASH16_CHARS),
             Geocode::QuadTile => (QUADTILE_BOUNDS.0, QUADTILE_BOUNDS.1,
                 QUADTILE_BOUNDS.2, QUADTILE_BOUNDS.3, 2, QUADTILE_CHARS),
         };
@@ -82,6 +87,7 @@ impl Geocode {
     pub fn get_epsg_code(&self) -> u32 {
         match self {
             Geocode::Geohash => 4326,
+            Geocode::Geohash16 => 4326,
             Geocode::QuadTile => 3857,
         }
     }
@@ -100,6 +106,15 @@ impl Geocode {
                     2_u32.pow(lat_bits as u32) as f64;
                 let long_delta = (GEOHASH_BOUNDS.1 - GEOHASH_BOUNDS.0) /
                     2_u32.pow(long_bits as u32) as f64;
+
+                (long_delta, lat_delta)
+            },
+            Geocode::Geohash16 => {
+                // calculate deltas
+                let lat_delta = (GEOHASH_BOUNDS.3 - GEOHASH_BOUNDS.2) /
+                    2_u32.pow(2 * precision as u32) as f64;
+                let long_delta = (GEOHASH_BOUNDS.1 - GEOHASH_BOUNDS.0) /
+                    2_u32.pow(2 * precision as u32) as f64;
 
                 (long_delta, lat_delta)
             },
@@ -128,14 +143,14 @@ mod tests {
         let geocode = Geocode::Geohash;
 
         let result = geocode.encode(
-            FORT_COLLINS_LAT_LONG.0, FORT_COLLINS_LAT_LONG.1, 6);
+            APPLETON_LAT_LONG.0, APPLETON_LAT_LONG.1, 6);
         assert!(result.is_ok());
-        assert_eq!("9xjq8z", &result.unwrap());
+        assert_eq!("dpc5u6", &result.unwrap());
 
         let result = geocode.encode(
-            APPLETON_LAT_LONG.0, APPLETON_LAT_LONG.1, 8);
+            FORT_COLLINS_LAT_LONG.0, FORT_COLLINS_LAT_LONG.1, 8);
         assert!(result.is_ok());
-        assert_eq!("dpc5u6t0", &result.unwrap());
+        assert_eq!("9xjq8zs6", &result.unwrap());
     }
 
     #[test]
@@ -156,18 +171,44 @@ mod tests {
     }
 
     #[test]
+    fn geohash16_encode() {
+        let geocode = Geocode::Geohash16;
+
+        let result = geocode.encode(
+            APPLETON_LAT_LONG.0, APPLETON_LAT_LONG.1, 6);
+        assert!(result.is_ok());
+        assert_eq!("65565d", &result.unwrap());
+
+        let result = geocode.encode(
+            FORT_COLLINS_LAT_LONG.0, FORT_COLLINS_LAT_LONG.1, 8);
+        assert!(result.is_ok());
+        assert_eq!("4f63647f", &result.unwrap());
+    }
+
+    #[test]
+    fn geohash16_intervals() {
+        let geocode = Geocode::Geohash16;
+        assert_eq!(geocode.get_intervals(1), (90.0, 45.0));
+        assert_eq!(geocode.get_intervals(2), (22.5, 11.25));
+        assert_eq!(geocode.get_intervals(3), (5.625, 2.8125));
+        assert_eq!(geocode.get_intervals(4), (1.40625, 0.703125));
+        assert_eq!(geocode.get_intervals(5), (0.3515625, 0.17578125));
+        assert_eq!(geocode.get_intervals(6), (0.087890625, 0.0439453125));
+    }
+
+    #[test]
     fn quadtile_encode() {
         let geocode = Geocode::QuadTile;
 
         let result = geocode.encode(
-            FORT_COLLINS_MERCATOR.0, FORT_COLLINS_MERCATOR.1, 6);
+            APPLETON_MERCATOR.0, APPLETON_MERCATOR.1, 6);
         assert!(result.is_ok());
-        assert_eq!("023101", &result.unwrap());
+        assert_eq!("030222", &result.unwrap());
 
         let result = geocode.encode(
-            APPLETON_MERCATOR.0, APPLETON_MERCATOR.1, 8);
+            FORT_COLLINS_MERCATOR.0, FORT_COLLINS_MERCATOR.1, 8);
         assert!(result.is_ok());
-        assert_eq!("03022201", &result.unwrap());
+        assert_eq!("02310101", &result.unwrap());
     }
 
     #[test]
